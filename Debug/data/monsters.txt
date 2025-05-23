@@ -1,0 +1,5 @@
+Имя,Стихия,Слабость
+Трутень,EARTH,POISON
+Протоморф,FIRE,WATER
+Некроморф,POISON,FIRE
+Гидра,WATER,EARTH
