@@ -1,86 +1,104 @@
-﻿//main.cpp
-#include "core/game_world.h"
-#include "core/game_actions.h"
-#include "ui/console_ui.h"
-#include <windows.h>
-#include <stdexcept>
+﻿// main.cpp
+#include <cstdlib>
 #include <iostream>
+#include <stdexcept>
+#include <string>
+#include <windows.h>
+
+#include "core/game_actions.h"
+#include "core/game_world.h"
+#include "ui/console_ui.h"
 
 #ifndef CP_UTF8
 #define CP_UTF8 65001
 #endif
 
-void initGame(GameWorld& world) {
-    const int numFloors = 4;
-    if (!world.loadAllFloors(numFloors)) {
-        throw std::runtime_error("Ошибка загрузки данных игры");
-    }
-}
+void InitGame(GameWorld& world, Player& player);
 
 int main() {
-    UI::initConsole();
+    ui::InitConsole();
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 
     try {
         GameWorld world;
-        initGame(world);
         Player player;
+        InitGame(world, player);
 
-        UI::showGameIntro();
-        UI::waitForEnter();
+        ui::ShowGameIntro();
 
-        bool wasLastRoom = false;
-        bool shouldRestartFromBeginning = false;
+        ui::PrintColored("\n=== Ваши начальные характеристики ===\n", 11);
+        ui::PrintPlayerStats(player);
+
+        ui::WaitForEnter("Нажмите Enter ...");
+        system("cls");
+
+        bool was_last_room = false;
+        bool first_room = true;
 
         while (true) {
-            if (player.health <= 0 || player.shipParts >= 7) break;
-
-            GameActions::handleRoomAction(player, world);
-
-            // Проверяем, были ли мы в последней комнате
-            if (world.getCurrentFloorIndex() == world.getFloorCount() - 1 &&
-                world.getCurrentRoomIndex() == world.getCurrentFloor().rooms.size() - 1) {
-                wasLastRoom = true;
+            if (player.health <= 0) {
+                ui::ShowGameEnding(false);
+                exit(0);
             }
-            // Проверяем, вернулись ли на первый этаж после последней комнаты
-            else if (wasLastRoom && world.getCurrentFloorIndex() == 0 &&
-                world.getCurrentRoomIndex() == 0) {
 
-                if (player.shipParts < 7) {
-                    UI::printColored("\nВы исследовали всю станцию, но не нашли все детали!\n", 14);
-                    UI::printColored("Возвращаемся на первый этаж...\n\n", 14);
-                    UI::waitForEnter();
+            if (player.ship_parts >= 7) {
+                ui::ShowGameEnding(true);
+                exit(0);
+            }
+
+            Room& current_room = world.GetCurrentRoomMutable();
+
+            if (current_room.first_visit) {
+                ui::PrintColored("=== " +
+                    std::to_string(world.GetCurrentFloorIndex() + 1) +
+                    " этаж ===\n", 11);
+                ui::PrintRoomDescription(current_room);
+                ui::WaitForEnter("Нажмите Enter ...");
+                current_room.first_visit = false;
+                continue;
+            }
+
+            GameActions::HandleRoomAction(player, world);
+
+            if (world.GetCurrentFloorIndex() == world.GetFloorCount() - 1 &&
+                world.GetCurrentRoomIndex() ==
+                world.GetCurrentFloor().rooms.size() - 1) {
+                was_last_room = true;
+            }
+            else if (was_last_room && world.GetCurrentFloorIndex() == 0 &&
+                world.GetCurrentRoomIndex() == 0) {
+
+                if (player.ship_parts < 7) {
+                    ui::PrintColored("\nВы исследовали всю станцию, "
+                        "но не нашли все детали!\n", 14);
+                    ui::PrintColored("Возвращаемся на первый этаж...\n\n", 14);
+                    ui::WaitForEnter("Нажмите Enter ...");
                     system("cls");
                 }
-                wasLastRoom = false;
+                was_last_room = false;
+                first_room = true;
             }
-
-            if (player.health > 0) {
-                UI::waitForEnter();
-            }
-        }
-
-        // Обработка завершения игры
-        if (player.shipParts >= 7) {
-            UI::showGameEnding(true);  // Победа
-        }
-        else if (player.health <= 0) {
-            UI::showGameEnding(false); // Поражение
-        }
-
-        UI::waitForEnter();
+        }              
+        ui::WaitForEnter("Нажмите Enter ...");
     }
     catch (const std::exception& e) {
-        UI::printColored("\nОшибка: " + std::string(e.what()) + "\n", 12);
-        UI::waitForEnter();
+        ui::PrintColored("\nОшибка: " + std::string(e.what()) + "\n", 12);
+        ui::WaitForEnter("Нажмите Enter ...");
         return 1;
     }
     catch (...) {
-        UI::printColored("\nНеизвестная ошибка!\n", 12);
-        UI::waitForEnter();
+        ui::PrintColored("\nНеизвестная ошибка!\n", 12);
+        ui::WaitForEnter("Нажмите Enter ...");
         return 1;
     }
 
     return 0;
+}
+
+void InitGame(GameWorld& world, Player& player) {
+    const int num_floors = 4;
+    if (!world.LoadAllFloors(num_floors, player)) {
+        throw std::runtime_error("Ошибка загрузки данных игры");
+    }
 }

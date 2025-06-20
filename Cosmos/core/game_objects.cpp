@@ -1,90 +1,105 @@
-//game_objects.cpp
-#include "game_objects.h"
-#include "../ui/console_ui.h"
+// game_objects.cpp
 #include <algorithm>
+
+#include "../ui/console_ui.h"
+#include "game_objects.h"
 
 ActionResult::ActionResult(const std::string& desc, const std::string& itm)
     : description(desc), item(itm) {
 }
 
-Effect::Effect(const std::string& type, const std::string& name, int health,
-    int str, int agi, int intl, int end,
-    int earth, int fire, int poison, int water)
-    : type(type), name(name), healthEffect(health),
-    strengthEffect(str), agilityEffect(agi), intellectEffect(intl), enduranceEffect(end),
-    earthResistance(earth), fireResistance(fire), poisonResistance(poison), waterResistance(water) {
+Effect::Effect(const std::string& type, const std::string& name, int health_effect,
+    int strength_effect, int agility_effect, int intellect_effect, int endurance_effect,
+    int earth_resistance, int fire_resistance, int poison_resistance, int water_resistance)
+    : type(type), name(name), health_effect(health_effect),
+    strength_effect(strength_effect), agility_effect(agility_effect),
+    intellect_effect(intellect_effect), endurance_effect(endurance_effect),
+    earth_resistance(earth_resistance), fire_resistance(fire_resistance),
+    poison_resistance(poison_resistance), water_resistance(water_resistance) {
 }
 
-Monster::Monster(const std::string& name, int health, Element element, Element weakness)
+Monster::Monster(const std::string& name, int health, Element element,
+    Element weakness)
     : name(name), health(health), element(element), weakness(weakness) {
 }
 
-void Monster::takeDamage(int damage) {
+void Monster::TakeDamage(int damage) {
     health = std::max(0, health - damage);
 }
 
-Action::Action(const std::string& id, const std::string& desc,
-    const std::string& stat, const ActionResult& succ, const ActionResult& fail)
-    : id(id), description(desc), success(succ), failure(fail) {
-    if (stat == "ÑÈË" || stat == "ËÎÂ" || stat == "ÈÍÒ" || stat == "ÂÛÍ") {
-        requiredStat = stat;
+Action::Action(const std::string& id, const std::string& description,
+    const std::string& required_stat, const ActionResult& success,
+    const ActionResult& failure)
+    : id(id), description(description), required_stat(required_stat),
+    success(success), failure(failure) {
+    if (required_stat != "ÑÈË" && required_stat != "ËÎÂ" &&
+        required_stat != "ÈÍÒ" && required_stat != "ÂÛÍ") {
+        this->required_stat = "NONE";
     }
-    else {
-        requiredStat = "NONE";
-    }
 }
 
-Room::Room(int id, const std::string& name, const std::string& desc,
-    const std::vector<std::string>& actionIds)
-    : id(id), name(name), description(desc), actionIds(actionIds) {
+Room::Room(int id, const std::string& name, const std::string& description,
+    const std::vector<std::string>& action_ids)
+    : id(id), name(name), description(description), action_ids(action_ids) {
 }
 
-Player::Player()
-    : health(150), shipParts(0), strength(30), agility(30), intellect(30), endurance(30),
-    suddenStrengthPotions(1), lifeCrystals(1), currentFloor(0), currentRoom(0), actionsTaken(0) {
-}
+Player::Player() {}
 
-void Player::takeDamage(int damage) {
+void Player::TakeDamage(int damage) {
     health = std::max(0, health - damage);
 }
 
-void Player::heal(int amount) {
+void Player::Heal(int amount) {
     health += amount;
 }
 
-void Player::addItem(const std::string& item) {
-    if (item == "Ôëàêîí Âíåçàïíîé Ñèëû") suddenStrengthPotions++;
-    else if (item == "Êğèñòàëë Æèçíè") lifeCrystals++;
-}
-
-void Player::useLifeCrystal() {
-    if (lifeCrystals > 0) {
-        heal(20);
-        lifeCrystals--;
+void Player::AddItem(const std::string& item) {
+    if (item == "Ôëàêîí Âíåçàïíîé Ñèëû") {
+        sudden_strength_potions++;
+    }
+    else if (item == "Êğèñòàëë Æèçíè") {
+        life_crystals++;
     }
 }
 
-void Player::useSuddenStrengthPotion() {
-    if (suddenStrengthPotions > 0) {
-        suddenStrengthPotions--;
+void Player::UseLifeCrystal() {
+    if (life_crystals > 0) {
+        Heal(20);
+        life_crystals--;
     }
 }
 
-void Player::increaseStat(const std::string& stat, int amount) {
+void Player::UseSuddenStrengthPotion() {
+    if (sudden_strength_potions > 0) {
+        sudden_strength_potions--;
+    }
+}
+
+void Player::IncreaseStat(const std::string& stat, int amount) {
     if (amount == 0) return;
 
-    if (stat == "ÑÈË") strength = std::min(80, strength + amount);
-    else if (stat == "ËÎÂ") agility = std::min(80, agility + amount);
-    else if (stat == "ÈÍÒ") intellect = std::min(80, intellect + amount);
-    else if (stat == "ÂÛÍ") endurance = std::min(80, endurance + amount);
+    if (stat == "ÑÈË") {
+        strength = std::min(80, strength + amount);
+    }
+    else if (stat == "ËÎÂ") {
+        agility = std::min(80, agility + amount);
+    }
+    else if (stat == "ÈÍÒ") {
+        intellect = std::min(80, intellect + amount);
+    }
+    else if (stat == "ÂÛÍ") {
+        endurance = std::min(80, endurance + amount);
+    }
 }
 
-bool Player::canFindPart() const {
-    std::string key = "floor_" + std::to_string(currentFloor) + "_room_" + std::to_string(currentRoom);
-    return foundParts.find(key) == foundParts.end();
+bool Player::CanFindPart() const {
+    std::string key = std::to_string(current_floor) + "_" +
+        std::to_string(current_room);
+    return found_parts.find(key) == found_parts.end();
 }
 
-bool Player::canFindArtifact() const {
-    std::string key = "floor_" + std::to_string(currentFloor) + "_room_" + std::to_string(currentRoom);
-    return foundArtifacts.find(key) == foundArtifacts.end();
+bool Player::CanFindArtifact() const {
+    std::string key = std::to_string(current_floor) + "_" +
+        std::to_string(current_room);
+    return found_artifacts.find(key) == found_artifacts.end();
 }

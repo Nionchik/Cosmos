@@ -1,254 +1,211 @@
-#include "combat_system.h"
-#include "../ui/console_ui.h"
-#include <random>
+// combat_system.cpp
 #include <algorithm>
-#include <limits>
 #include <iostream>
+#include <limits>
+#include <random>
 
-bool CombatSystem::fight(Player& player, const Monster& originalMonster,
+#include "../ui/console_ui.h"
+#include "combat_system.h"
+
+bool CombatSystem::Fight(Player& player, const Monster& original_monster,
     const std::vector<Effect>& effects) {
-    Monster monster = originalMonster;  // Создаём копию для боя
+
+    Monster monster = original_monster;
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> damageDist(5, 8); // Для нейтрального оружия
-    std::uniform_int_distribution<int> critDist(14, 17); // Для оружия слабости
-    std::uniform_int_distribution<int> meleeDist(7, 10); // Для ближнего боя
-    std::uniform_int_distribution<int> monsterDist(9, 12); // Для атаки монстра
-    std::uniform_int_distribution<int> critChance(1, 100); // Для проверки крита
+    std::uniform_int_distribution<int> damage_dist(5, 8);
+    std::uniform_int_distribution<int> crit_dist(14, 17);
+    std::uniform_int_distribution<int> melee_dist(7, 10);
+    std::uniform_int_distribution<int> monster_dist(9, 12);
+    std::uniform_int_distribution<int> crit_chance(1, 100);
+
+    auto ElementToString = [](Element e) {
+        switch (e) {
+        case Element::kEarth: return "Земля";
+        case Element::kFire: return "Огонь";
+        case Element::kPoison: return "Яд";
+        case Element::kWater: return "Вода";
+        default: return "Нет";
+        }
+        };
 
     while (player.health > 0 && monster.health > 0) {
         // Отображение информации о монстре
-        UI::printColored("\n=== ИНФОРМАЦИЯ О МОНСТРЕ ===\n", 6);
-        UI::printColored("Имя: " + monster.name + "\n", 14);
+        ui::PrintColored("\n=== ИНФОРМАЦИЯ О МОНСТРЕ ===\n", 6);
+        ui::PrintColored("Имя: " + monster.name + "\n", 14);
 
-        // Отображение стихии монстра
-        std::string elementStr;
-        switch (monster.element) {
-        case Element::EARTH: elementStr = "Земля"; break;
-        case Element::FIRE: elementStr = "Огонь"; break;
-        case Element::POISON: elementStr = "Яд"; break;
-        case Element::WATER: elementStr = "Вода"; break;
-        default: elementStr = "Нет";
-        }
-        UI::printColored("Стихия: " + elementStr + "\n", 12);
-
-        // Отображение уязвимости монстра
-        std::string weaknessStr;
-        switch (monster.weakness) {
-        case Element::EARTH: weaknessStr = "Земля"; break;
-        case Element::FIRE: weaknessStr = "Огонь"; break;
-        case Element::POISON: weaknessStr = "Яд"; break;
-        case Element::WATER: weaknessStr = "Вода"; break;
-        default: weaknessStr = "Нет";
-        }
-        UI::printColored("Слабость: " + weaknessStr + "\n\n", 11);
+        // Исправленный вывод стихии и слабости
+        ui::PrintColored(std::string("Стихия: ") + ElementToString(monster.element) + "\n", 12);
+        ui::PrintColored((std::string("Слабость: ") + ElementToString(monster.weakness) + "\n\n").c_str(), 11);
 
         // Отображение здоровья
-        UI::printColored(monster.name + ": " + std::to_string(monster.health) + " HP\n", 12);
-        UI::printColored("Ваше здоровье: " + std::to_string(player.health) + " HP\n\n", 10);
+        ui::PrintColored(monster.name + ": " + std::to_string(monster.health) + " HP\n", 12);
+        ui::PrintColored("Ваше здоровье: " + std::to_string(player.health) + " HP\n\n", 10);
 
         // Выбор действия
-        UI::printColored("Выберите действие:\n", 14);
-        UI::printColored("1. Атаковать оружием\n", 14);
-        UI::printColored("2. Использовать зелье (Кристаллы: " + std::to_string(player.lifeCrystals) +
-            ", Флаконы: " + std::to_string(player.suddenStrengthPotions) + ")\n", 14);
-        UI::printColored("3. Ближний бой\n", 14);
+        ui::PrintColored("Выберите действие:\n", 14);
+        ui::PrintColored("1. Атаковать оружием\n", 14);
+        ui::PrintColored("2. Использовать зелье (Кристаллы: " +
+            std::to_string(player.life_crystals) +
+            ", Флаконы: " + std::to_string(player.sudden_strength_potions) + ")\n", 14);
+        ui::PrintColored("3. Ближний бой\n", 14);
 
         int choice;
         if (!(std::cin >> choice)) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            UI::printColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
+            ui::PrintColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
             continue;
         }
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         // Обработка выбора игрока
         if (choice == 1) {
-            UI::printColored("\nВыберите оружие:\n", 11);
-            UI::printColored("1. Абиобластер (Земля)\n", 11);
-            UI::printColored("2. Омнибластер (Яд)\n", 11);
-            UI::printColored("3. Нейробластер (Огонь)\n", 11);
-            UI::printColored("4. Аквабластер (Вода)\n", 11);
+            ui::PrintColored("\nВыберите оружие:\n", 11);
+            ui::PrintColored("1. Абиобластер (Земля)\n", 11);
+            ui::PrintColored("2. Омнибластер (Яд)\n", 11);
+            ui::PrintColored("3. Нейробластер (Огонь)\n", 11);
+            ui::PrintColored("4. Аквабластер (Вода)\n", 11);
 
-            int weaponChoice;
-            if (!(std::cin >> weaponChoice)) {
+            int weapon_choice;
+            if (!(std::cin >> weapon_choice)) {
                 std::cin.clear();
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                UI::printColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
+                ui::PrintColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
                 continue;
             }
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
             int damage = 0;
-            Element weaponElement = Element::NONE;
-            bool isCritical = false;
+            Element weapon_element = Element::kNone;
+            bool is_critical = false;
 
-            switch (weaponChoice) {
-            case 1: weaponElement = Element::EARTH; break;
-            case 2: weaponElement = Element::POISON; break;
-            case 3: weaponElement = Element::FIRE; break;
-            case 4: weaponElement = Element::WATER; break;
-            default: weaponElement = Element::NONE;
+            switch (weapon_choice) {
+            case 1: weapon_element = Element::kEarth; break;
+            case 2: weapon_element = Element::kPoison; break;
+            case 3: weapon_element = Element::kFire; break;
+            case 4: weapon_element = Element::kWater; break;
+            default: weapon_element = Element::kNone;
             }
 
-            if (weaponElement == monster.weakness) {
-                damage = critDist(gen); // Базовый урон 14-17
+            if (weapon_element == monster.weakness) {
+                damage = crit_dist(gen); // Базовый урон 14-17
                 // Проверка на критический удар (35% шанс)
-                if (critChance(gen) <= 35) {
+                if (crit_chance(gen) <= 35) {
                     damage *= 3;
-                    isCritical = true;
+                    is_critical = true;
                 }
             }
-            else if (weaponElement == monster.element) {
+            else if (weapon_element == monster.element) {
                 damage = 0; // Нулевой урон
             }
             else {
-                damage = damageDist(gen); // Базовый урон 5-8
+                damage = damage_dist(gen); // Базовый урон 5-8
                 // Проверка на критический удар (35% шанс)
-                if (critChance(gen) <= 35) {
+                if (crit_chance(gen) <= 35) {
                     damage *= 3;
-                    isCritical = true;
+                    is_critical = true;
                 }
             }
 
-            if (isCritical) {
-                UI::printColored("Критический удар! ", 12);
+            if (is_critical) {
+                ui::PrintColored("Критический удар! ", 12);
             }
-            monster.takeDamage(damage);
-            UI::printColored("Вы нанесли " + std::to_string(damage) + " урона!\n", 10);
-            player.takeDamage(4); // Урон от отдачи оружия
-            UI::printColored("Вы получили 4 урона от отдачи оружия.\n", 12);
+            monster.TakeDamage(damage);
+            ui::PrintColored("Вы нанесли " + std::to_string(damage) + " урона!\n", 10);
+            player.TakeDamage(4); // Урон от отдачи оружия
+            ui::PrintColored("Вы получили 4 урона от отдачи оружия.\n", 12);
         }
         else if (choice == 2) {
-            UI::printColored("\nВыберите зелье:\n", 14);
-            UI::printColored("1. Кристалл Жизни (+20 HP)\n", 14);
-            UI::printColored("2. Флакон Внезапной Силы (-20 HP монстру)\n", 14);
+            ui::PrintColored("\nВыберите зелье:\n", 14);
+            ui::PrintColored("1. Кристалл Жизни (+20 HP)\n", 14);
+            ui::PrintColored("2. Флакон Внезапной Силы (-20 HP монстру)\n", 14);
 
-            int potionChoice;
-            if (!(std::cin >> potionChoice)) {
+            int potion_choice;
+            if (!(std::cin >> potion_choice)) {
                 std::cin.clear();
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                UI::printColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
+                ui::PrintColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
                 continue;
             }
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            if (potionChoice == 1) {
-                if (player.lifeCrystals > 0) {
-                    player.heal(20);
-                    player.lifeCrystals--;
-                    UI::printColored("Использован Кристалл Жизни (+20 HP)\n", 10);
+            if (potion_choice == 1) {
+                if (player.life_crystals > 0) {
+                    player.Heal(20);
+                    player.life_crystals--;
+                    ui::PrintColored("Использован Кристалл Жизни (+20 HP)\n", 10);
                 }
                 else {
-                    UI::printColored("Нет Кристаллов Жизни!\n", 12);
+                    ui::PrintColored("Нет Кристаллов Жизни!\n", 12);
                 }
             }
-            else if (potionChoice == 2) {
-                if (player.suddenStrengthPotions > 0) {
-                    player.suddenStrengthPotions--;
-                    monster.takeDamage(20);
-                    UI::printColored("Вы использовали Флакон Внезапной Силы! Монстр получил 20 урона.\n", 10);
+            else if (potion_choice == 2) {
+                if (player.sudden_strength_potions > 0) {
+                    player.sudden_strength_potions--;
+                    monster.TakeDamage(20);
+                    ui::PrintColored("Вы использовали Флакон Внезапной Силы! Монстр получил 20 урона.\n", 10);
                 }
                 else {
-                    UI::printColored("У вас нет Флаконов Внезапной Силы!\n", 12);
+                    ui::PrintColored("У вас нет Флаконов Внезапной Силы!\n", 12);
                 }
             }
 
-            // После использования зелья игрок должен выбрать оружие
-            UI::printColored("\nТеперь выберите оружие для атаки:\n", 11);
-            UI::printColored("1. Абиобластер (Земля)\n", 11);
-            UI::printColored("2. Омнибластер (Яд)\n", 11);
-            UI::printColored("3. Нейробластер (Огонь)\n", 11);
-            UI::printColored("4. Аквабластер (Вода)\n", 11);
-            UI::printColored("5. Ближний бой\n", 11);
-
-            int attackChoice;
-            if (!(std::cin >> attackChoice)) {
-                std::cin.clear();
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                UI::printColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
-                continue;
-            }
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
-            int damage = 0;
-            if (attackChoice >= 1 && attackChoice <= 4) {
-                Element weaponElement = Element::NONE;
-                switch (attackChoice) {
-                case 1: weaponElement = Element::EARTH; break;
-                case 2: weaponElement = Element::POISON; break;
-                case 3: weaponElement = Element::FIRE; break;
-                case 4: weaponElement = Element::WATER; break;
-                }
-
-                if (weaponElement == monster.weakness) {
-                    damage = critDist(gen);
-                }
-                else if (weaponElement == monster.element) {
-                    damage = 0;
-                }
-                else {
-                    damage = damageDist(gen);
-                }
-
-                monster.takeDamage(damage);
-                UI::printColored("Вы нанесли " + std::to_string(damage) + " урона!\n", 10);
-                player.takeDamage(4); // Урон от отдачи оружия
-                UI::printColored("Вы получили 4 урона от отдачи оружия.\n", 12);
-            }
-            else if (attackChoice == 5) {
-                damage = meleeDist(gen);
-                monster.takeDamage(damage);
-                UI::printColored("Вы нанесли " + std::to_string(damage) + " урона ближним боем!\n", 10);
-            }
-            else {
-                UI::printColored("Неверный выбор! Пропускаем атаку.\n", 12);
-            }
+            // После использования зелья просто продолжаем цикл
+            ui::WaitForEnter();
+            continue;
         }
         else if (choice == 3) {
-            int damage = meleeDist(gen);
-            monster.takeDamage(damage);
-            UI::printColored("Вы нанесли " + std::to_string(damage) + " урона ближним боем!\n", 10);
+            int damage = melee_dist(gen);
+            monster.TakeDamage(damage);
+            ui::PrintColored("Вы нанесли " + std::to_string(damage) + " урона ближним боем!\n", 10);
         }
         else {
-            UI::printColored("Неверный выбор! Пожалуйста, выберите действие из списка.\n", 12);
+            ui::PrintColored("Неверный выбор! Пожалуйста, выберите действие из списка.\n", 12);
             continue;
         }
 
         // Атака монстра, если он еще жив
         if (monster.health > 0) {
-            int damage = monsterDist(gen);
-            int resistance = 10;
+            int damage = monster_dist(gen);
+            int resistance = 0;
 
-            // Расчет сопротивления игрока
+            // Добавляем сопротивления из характеристик игрока
+            switch (monster.element) {
+            case Element::kEarth: resistance += player.earth_resistance; break;
+            case Element::kFire: resistance += player.fire_resistance; break;
+            case Element::kPoison: resistance += player.poison_resistance; break;
+            case Element::kWater: resistance += player.water_resistance; break;
+            default: break;
+            }
+
+            // Добавляем бонусы от артефактов
             for (const auto& effect : effects) {
                 if (effect.type == "артефакт" &&
-                    player.foundArtifacts.count("floor_" + std::to_string(player.currentFloor) +
-                        "_room_" + std::to_string(player.currentRoom))) {
+                    player.found_artifacts.count("floor_" + std::to_string(player.current_floor) +
+                        "_room_" + std::to_string(player.current_room))) {
                     switch (monster.element) {
-                    case Element::EARTH: resistance += effect.earthResistance; break;
-                    case Element::FIRE: resistance += effect.fireResistance; break;
-                    case Element::POISON: resistance += effect.poisonResistance; break;
-                    case Element::WATER: resistance += effect.waterResistance; break;
+                    case Element::kEarth: resistance += effect.earth_resistance; break;
+                    case Element::kFire: resistance += effect.fire_resistance; break;
+                    case Element::kPoison: resistance += effect.poison_resistance; break;
+                    case Element::kWater: resistance += effect.water_resistance; break;
                     default: break;
                     }
                 }
             }
 
-            resistance = std::min(resistance, 70); // Ограничение сопротивления до 70%
+            resistance = std::min(resistance, 80); // Ограничение сопротивления до 80%
             damage = damage * (100 - resistance) / 100;
-            player.takeDamage(damage);
-            UI::printColored("\n" + monster.name + " атакует вас и наносит " +
+            player.TakeDamage(damage);
+            ui::PrintColored("\n" + monster.name + " атакует вас и наносит " +
                 std::to_string(damage) + " урона! (Сопротивление: " +
                 std::to_string(resistance) + "%)\n", 12);
-            UI::waitForEnter();
+            ui::WaitForEnter();
         }
     }
 
     if (monster.health <= 0) {
-        UI::printColored("\nВы победили " + monster.name + "!\n", 10);
-        UI::waitForEnter();
+        ui::PrintColored("\nВы победили " + monster.name + "!\n", 10);
         return true;
     }
     return false;

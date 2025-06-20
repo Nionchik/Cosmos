@@ -1,36 +1,32 @@
 cmake_minimum_required(VERSION 3.10)
-project(Cosmos)  # Название проекта
-
-# Явно указываем C++14
+project(GameProject LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)  # Обязательное использование C++14
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Включаем все исходники из core/, ui/ и main.cpp
-file(GLOB_RECURSE SOURCES
-    "core/*.cpp"
-    "ui/*.cpp"
-    "main.cpp"
-)
+# Автоматический поиск файлов
+file(GLOB CORE_SOURCES core/*.cpp)
+file(GLOB CORE_HEADERS core/*.h)
+file(GLOB UI_SOURCES ui/*.cpp)
+file(GLOB UI_HEADERS ui/*.h)
 
-# Подключаем заголовки (core/, ui/)
-include_directories(
-    core/
-    ui/
-)
+set(SOURCES ${CORE_SOURCES} ${UI_SOURCES} main.cpp)
+set(HEADERS ${CORE_HEADERS} ${UI_HEADERS})
 
-# Создаём исполняемый файл
-add_executable(Cosmos ${SOURCES})
+add_executable(GameProject ${SOURCES} ${HEADERS})
 
-# Копируем папку data/ в билд-директорию (чтобы программа видела ресурсы)
-file(GLOB DATA_FILES "data/*.*")  # Все файлы из data/
-add_custom_command(
-    TARGET Cosmos POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/data
-    COMMAND ${CMAKE_COMMAND} -E copy ${DATA_FILES} ${CMAKE_BINARY_DIR}/data
-    COMMENT "Копирование ресурсов в build/data/"
-)
-
-# Опционально: настройка для Visual Studio (если нужно)
-if(MSVC)
-    target_compile_options(Cosmos PRIVATE /W4 /WX)  # Включить все предупреждения и трактовать их как ошибки
+# Копирование data только если папка существует
+if(EXISTS "${CMAKE_SOURCE_DIR}/data")
+    add_custom_command(TARGET GameProject POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/data"
+        "$<TARGET_FILE_DIR:GameProject>/data"
+    )
 endif()
+
+# Группировка файлов для Visual Studio
+source_group("core" REGULAR_EXPRESSION "core/.*")
+source_group("ui" REGULAR_EXPRESSION "ui/.*")
+
+# (Опционально) установка
+# install(TARGETS GameProject DESTINATION bin)
+# install(DIRECTORY data/ DESTINATION bin/data)

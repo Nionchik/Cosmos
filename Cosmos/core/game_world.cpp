@@ -1,212 +1,266 @@
 // game_world.cpp
-#include "game_world.h"
-#include "../ui/console_ui.h"
+#include <algorithm>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
-#include <algorithm>
-#include <iostream>
 
-using namespace std;
+#include "../ui/console_ui.h"
+#include "game_world.h"
 
-// Вспомогательная функция для формирования пути к файлам данных
-string getDataPath(const string& filename) {
+std::string GetDataPath(const std::string& filename) {
     return "data/" + filename;
 }
 
-bool GameWorld::loadRooms(const string& filename, vector<Room>& rooms, int floorNumber) {
-    ifstream file(getDataPath(filename));
+bool GameWorld::LoadPlayerStats(const std::string& filename, Player& player) {
+    std::ifstream file(GetDataPath(filename));
     if (!file.is_open()) {
-        cerr << "Ошибка открытия файла комнат: " << filename << endl;
+        std::cerr << "Ошибка открытия файла статистики игрока: "
+            << filename << std::endl;
         return false;
     }
 
-    unordered_set<int> roomIds;
-    string line;
-    Room currentRoom(-1, "", "", {});
-    string* currentField = nullptr;
+    std::string line;
+    std::getline(file, line);
 
-    while (getline(file, line)) {
+    if (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string value;
+        std::vector<int> stats;
+
+        while (std::getline(ss, value, ',')) {
+            stats.push_back(std::stoi(value));
+        }
+
+        if (stats.size() >= 12) {
+            player.health = stats[0];
+            player.ship_parts = stats[1];
+            player.strength = stats[2];
+            player.agility = stats[3];
+            player.intellect = stats[4];
+            player.endurance = stats[5];
+            player.sudden_strength_potions = stats[6];
+            player.life_crystals = stats[7];
+            player.earth_resistance = stats[8];
+            player.fire_resistance = stats[9];
+            player.poison_resistance = stats[10];
+            player.water_resistance = stats[11];
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool GameWorld::LoadWeapons(const std::string& filename) {
+    std::ifstream file(GetDataPath(filename));
+    if (!file.is_open()) {
+        std::cerr << "Ошибка открытия файла оружия: " << filename << std::endl;
+        return false;
+    }
+
+    std::string line;
+    std::getline(file, line);
+    return true;
+}
+
+bool GameWorld::LoadRooms(const std::string& filename, std::vector<Room>& rooms,
+    int floor_number) {
+    std::ifstream file(GetDataPath(filename));
+    if (!file.is_open()) {
+        std::cerr << "Ошибка открытия файла комнат: " << filename << std::endl;
+        return false;
+    }
+
+    std::unordered_set<int> room_ids;
+    std::string line;
+    Room current_room(-1, "", "", {});
+    std::string* current_field = nullptr;
+
+    while (std::getline(file, line)) {
         line.erase(0, line.find_first_not_of(" \t"));
         line.erase(line.find_last_not_of(" \t") + 1);
 
         if (line.empty()) continue;
 
         if (line[0] == '[') {
-            if (currentRoom.id != -1) {
-                if (roomIds.count(currentRoom.id)) {
-                    cerr << "Ошибка: дубликат ID комнаты " << currentRoom.id << endl;
+            if (current_room.id != -1) {
+                if (room_ids.count(current_room.id)) {
+                    std::cerr << "Ошибка: дубликат ID комнаты "
+                        << current_room.id << std::endl;
                     return false;
                 }
-                roomIds.insert(currentRoom.id);
-                rooms.push_back(currentRoom);
+                room_ids.insert(current_room.id);
+                rooms.push_back(current_room);
             }
 
-            currentRoom = Room(-1, "", "", {});
-            currentField = nullptr;
+            current_room = Room(-1, "", "", {});
+            current_field = nullptr;
 
-            string idStr = line.substr(1, line.find(']') - 1);
-            size_t underscore = idStr.find('_');
-            if (underscore != string::npos) {
+            std::string id_str = line.substr(1, line.find(']') - 1);
+            size_t underscore = id_str.find('_');
+            if (underscore != std::string::npos) {
                 try {
-                    string floorStr = idStr.substr(0, underscore);
-                    string roomStr = idStr.substr(underscore + 1);
-                    int fileFloorNumber = stoi(floorStr) - 1;
-                    if (fileFloorNumber == floorNumber) {
-                        currentRoom.id = stoi(roomStr);
+                    std::string floor_str = id_str.substr(0, underscore);
+                    std::string room_str = id_str.substr(underscore + 1);
+                    int file_floor_number = std::stoi(floor_str) - 1;
+                    if (file_floor_number == floor_number) {
+                        current_room.id = std::stoi(room_str);
                     }
                 }
                 catch (...) {
-                    currentRoom.id = -1;
+                    current_room.id = -1;
                 }
             }
             continue;
         }
 
-        size_t sepPos = line.find('=');
-        if (sepPos != string::npos) {
-            string key = line.substr(0, sepPos);
-            string value = line.substr(sepPos + 1);
+        size_t sep_pos = line.find('=');
+        if (sep_pos != std::string::npos) {
+            std::string key = line.substr(0, sep_pos);
+            std::string value = line.substr(sep_pos + 1);
 
             if (key == "Название") {
-                currentRoom.name = value;
-                currentField = &currentRoom.name;
+                current_room.name = value;
+                current_field = &current_room.name;
             }
             else if (key == "Описание") {
-                currentRoom.description = value;
-                currentField = &currentRoom.description;
+                current_room.description = value;
+                current_field = &current_room.description;
             }
             else if (key == "Действия") {
-                stringstream ss(value);
-                string actionId;
-                while (getline(ss, actionId, ',')) {
-                    actionId.erase(0, actionId.find_first_not_of(" \t"));
-                    actionId.erase(actionId.find_last_not_of(" \t") + 1);
-                    if (!actionId.empty()) {
-                        currentRoom.actionIds.push_back(actionId);
+                std::stringstream ss(value);
+                std::string action_id;
+                while (std::getline(ss, action_id, ',')) {
+                    action_id.erase(0, action_id.find_first_not_of(" \t"));
+                    action_id.erase(action_id.find_last_not_of(" \t") + 1);
+                    if (!action_id.empty()) {
+                        current_room.action_ids.push_back(action_id);
                     }
                 }
-                currentField = nullptr;
+                current_field = nullptr;
             }
         }
-        else if (currentField) {
-            *currentField += "\n" + line;
+        else if (current_field) {
+            *current_field += "\n" + line;
         }
     }
 
-    if (currentRoom.id != -1) {
-        if (roomIds.count(currentRoom.id)) {
-            cerr << "Ошибка: дубликат ID комнаты " << currentRoom.id << endl;
+    if (current_room.id != -1) {
+        if (room_ids.count(current_room.id)) {
+            std::cerr << "Ошибка: дубликат ID комнаты "
+                << current_room.id << std::endl;
             return false;
         }
-        rooms.push_back(currentRoom);
+        rooms.push_back(current_room);
     }
 
     return !rooms.empty();
 }
 
-bool GameWorld::loadActions(const vector<string>& actionFiles,
-    const vector<string>& resultFiles,
-    vector<Action>& actions,
-    map<string, Action>& actionMap) {
-    // 1. Загрузка действий
-    for (const auto& filename : actionFiles) {
-        ifstream file(getDataPath(filename));
+bool GameWorld::LoadActions(const std::vector<std::string>& action_files,
+    const std::vector<std::string>& result_files,
+    std::vector<Action>& actions,
+    std::map<std::string, Action>& action_map) {
+    for (const auto& filename : action_files) {
+        std::ifstream file(GetDataPath(filename));
         if (!file.is_open()) {
-            cerr << "Ошибка открытия файла действий: " << filename << endl;
+            std::cerr << "Ошибка открытия файла действий: "
+                << filename << std::endl;
             continue;
         }
 
-        string line;
-        string currentSection;
+        std::string line;
+        std::string current_section;
 
-        while (getline(file, line)) {
+        while (std::getline(file, line)) {
             line.erase(0, line.find_first_not_of(" \t"));
             line.erase(line.find_last_not_of(" \t") + 1);
 
             if (line.empty()) continue;
 
             if (line[0] == '[') {
-                currentSection = line.substr(1, line.find(']') - 1);
+                current_section = line.substr(1, line.find(']') - 1);
                 continue;
             }
 
-            if (currentSection == "Действия") {
-                size_t sepPos = line.find('=');
-                if (sepPos != string::npos) {
-                    string fullId = line.substr(0, sepPos);
-                    string value = line.substr(sepPos + 1);
+            if (current_section == "Действия") {
+                size_t sep_pos = line.find('=');
+                if (sep_pos != std::string::npos) {
+                    std::string full_id = line.substr(0, sep_pos);
+                    std::string value = line.substr(sep_pos + 1);
 
-                    size_t statPos = value.find_last_of(';');
-                    if (statPos != string::npos) {
-                        string description = value.substr(0, statPos);
-                        string stat = value.substr(statPos + 1);
+                    size_t stat_pos = value.find_last_of(';');
+                    if (stat_pos != std::string::npos) {
+                        std::string description = value.substr(0, stat_pos);
+                        std::string stat = value.substr(stat_pos + 1);
 
-                        Action newAction(fullId, description, stat);
-                        actions.push_back(newAction);
-                        actionMap[fullId] = newAction;
+                        Action new_action(full_id, description, stat);
+                        actions.push_back(new_action);
+                        action_map[full_id] = new_action;
                     }
                 }
             }
         }
     }
 
-    // 2. Загрузка результатов
-    for (const auto& filename : resultFiles) {
-        ifstream file(getDataPath(filename));
+    for (const auto& filename : result_files) {
+        std::ifstream file(GetDataPath(filename));
         if (!file.is_open()) {
-            cerr << "Ошибка открытия файла результатов: " << filename << endl;
+            std::cerr << "Ошибка открытия файла результатов: "
+                << filename << std::endl;
             continue;
         }
 
-        string line;
-        string currentSection;
-        ActionResult* currentResult = nullptr;
-        string currentFullId;
+        std::string line;
+        std::string current_section;
+        ActionResult* current_result = nullptr;
+        std::string current_full_id;
 
-        while (getline(file, line)) {
+        while (std::getline(file, line)) {
             line.erase(0, line.find_first_not_of(" \t"));
             line.erase(line.find_last_not_of(" \t") + 1);
 
             if (line.empty()) continue;
 
             if (line[0] == '[') {
-                string section = line.substr(1, line.find(']') - 1);
+                std::string section = line.substr(1, line.find(']') - 1);
                 if (section == "Результаты") {
-                    currentSection = section;
+                    current_section = section;
                     continue;
                 }
 
-                size_t lastUnderscore = section.rfind('_');
-                if (lastUnderscore != string::npos) {
-                    string resultType = section.substr(lastUnderscore + 1);
-                    currentFullId = section.substr(0, lastUnderscore);
+                size_t last_underscore = section.rfind('_');
+                if (last_underscore != std::string::npos) {
+                    std::string result_type = section.substr(last_underscore + 1);
+                    current_full_id = section.substr(0, last_underscore);
 
-                    auto mapIt = actionMap.find(currentFullId);
-                    if (mapIt != actionMap.end()) {
-                        currentResult = (resultType == "success") ? &mapIt->second.success : &mapIt->second.failure;
+                    auto map_it = action_map.find(current_full_id);
+                    if (map_it != action_map.end()) {
+                        current_result = (result_type == "success") ?
+                            &map_it->second.success : &map_it->second.failure;
                     }
                 }
                 continue;
             }
 
-            if (currentResult) {
-                size_t eqPos = line.find('=');
-                if (eqPos != string::npos) {
-                    string key = line.substr(0, eqPos);
-                    string value = line.substr(eqPos + 1);
+            if (current_result) {
+                size_t eq_pos = line.find('=');
+                if (eq_pos != std::string::npos) {
+                    std::string key = line.substr(0, eq_pos);
+                    std::string value = line.substr(eq_pos + 1);
 
                     if (key == "Описание") {
                         size_t pos = 0;
-                        while ((pos = value.find("\\n", pos)) != string::npos) {
+                        while ((pos = value.find("\\n", pos)) != std::string::npos) {
                             value.replace(pos, 2, "\n");
                             pos += 1;
                         }
-                        currentResult->description = value;
+                        current_result->description = value;
                     }
                     else if (key == "Предмет") {
-                        currentResult->item = value;
+                        current_result->item = value;
                     }
                 }
             }
@@ -216,90 +270,110 @@ bool GameWorld::loadActions(const vector<string>& actionFiles,
     return true;
 }
 
-bool GameWorld::loadEffects(const string& filename, vector<Effect>& effects) {
-    ifstream file(getDataPath(filename));
+bool GameWorld::LoadEffects(const std::string& filename,
+    std::vector<Effect>& effects) {
+    std::ifstream file(GetDataPath(filename));
     if (!file.is_open()) {
-        cerr << "Ошибка открытия файла эффектов: " << filename << endl;
+        std::cerr << "Ошибка открытия файла эффектов: "
+            << filename << std::endl;
         return false;
     }
 
-    string line;
-    getline(file, line); // Пропускаем заголовок
+    std::string line;
+    std::getline(file, line);
 
-    while (getline(file, line)) {
-        vector<string> fields;
-        string field;
-        stringstream ss(line);
+    while (std::getline(file, line)) {
+        std::vector<std::string> fields;
+        std::string field;
+        std::stringstream ss(line);
 
-        while (getline(ss, field, ',')) {
+        while (std::getline(ss, field, ',')) {
             field.erase(0, field.find_first_not_of(" \t"));
             field.erase(field.find_last_not_of(" \t") + 1);
             fields.push_back(field);
         }
 
         if (fields.size() != 11) {
-            cerr << "Неправильное количество полей в строке: " << line << endl;
+            std::cerr << "Неправильное количество полей в строке: "
+                << line << std::endl;
             continue;
         }
 
         try {
             Effect e(
-                fields[0], fields[1], stoi(fields[2]),
-                stoi(fields[3]), stoi(fields[4]), stoi(fields[5]), stoi(fields[6]),
-                stoi(fields[7]), stoi(fields[8]), stoi(fields[9]), stoi(fields[10])
+                fields[0], fields[1], std::stoi(fields[2]),
+                std::stoi(fields[3]), std::stoi(fields[4]), std::stoi(fields[5]),
+                std::stoi(fields[6]),
+                std::stoi(fields[7]), std::stoi(fields[8]), std::stoi(fields[9]),
+                std::stoi(fields[10])
             );
             effects.push_back(e);
         }
         catch (...) {
-            cerr << "Ошибка парсинга строки: " << line << endl;
+            std::cerr << "Ошибка парсинга строки: " << line << std::endl;
         }
     }
 
     return true;
 }
 
-bool GameWorld::loadMonsters(const string& filename, vector<Monster>& monsters) {
-    ifstream file(getDataPath(filename));
+bool GameWorld::LoadMonsters(const std::string& filename,
+    std::vector<Monster>& monsters) {
+    std::ifstream file(GetDataPath(filename));
     if (!file.is_open()) {
-        cerr << "Ошибка открытия файла монстров: " << filename << endl;
+        std::cerr << "Ошибка открытия файла монстров: "
+            << filename << std::endl;
         return false;
     }
 
-    string line;
-    getline(file, line); // Пропускаем заголовок
+    std::string line;
+    std::getline(file, line);
 
-    while (getline(file, line)) {
-        stringstream ss(line);
-        string name, elementStr, weaknessStr;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string name, element_str, weakness_str, health_str;
 
-        getline(ss, name, ',');
-        getline(ss, elementStr, ',');
-        getline(ss, weaknessStr, ',');
+        std::getline(ss, name, ',');
+        std::getline(ss, element_str, ',');
+        std::getline(ss, weakness_str, ',');
+        std::getline(ss, health_str, ',');
 
-        Element element = Element::NONE;
-        if (elementStr == "EARTH") element = Element::EARTH;
-        else if (elementStr == "FIRE") element = Element::FIRE;
-        else if (elementStr == "POISON") element = Element::POISON;
-        else if (elementStr == "WATER") element = Element::WATER;
+        Element element = Element::kNone;
+        if (element_str == "EARTH") element = Element::kEarth;
+        else if (element_str == "FIRE") element = Element::kFire;
+        else if (element_str == "POISON") element = Element::kPoison;
+        else if (element_str == "WATER") element = Element::kWater;
 
-        Element weakness = Element::NONE;
-        if (weaknessStr == "EARTH") weakness = Element::EARTH;
-        else if (weaknessStr == "FIRE") weakness = Element::FIRE;
-        else if (weaknessStr == "POISON") weakness = Element::POISON;
-        else if (weaknessStr == "WATER") weakness = Element::WATER;
+        Element weakness = Element::kNone;
+        if (weakness_str == "EARTH") weakness = Element::kEarth;
+        else if (weakness_str == "FIRE") weakness = Element::kFire;
+        else if (weakness_str == "POISON") weakness = Element::kPoison;
+        else if (weakness_str == "WATER") weakness = Element::kWater;
 
-        monsters.emplace_back(name, 50, element, weakness);
+        int health = std::stoi(health_str);
+        monsters.emplace_back(name, health, element, weakness);
     }
 
     return true;
 }
 
-bool GameWorld::loadAllFloors(int numFloors) {
-    floors.clear();
-    floors.resize(numFloors);
+bool GameWorld::LoadAllFloors(int num_floors, Player& player) {
+    floors_.clear();
+    floors_.resize(num_floors);
 
-    for (int i = 0; i < numFloors; ++i) {
-        if (!loadFloorData(i)) {
+    if (!LoadPlayerStats("player_stats.txt", player)) {
+        std::cerr << "Failed to load player stats" << std::endl;
+        return false;
+    }
+
+    if (!LoadWeapons("weapons.txt")) {
+        std::cerr << "Failed to load weapons" << std::endl;
+        return false;
+    }
+
+    for (int i = 0; i < num_floors; ++i) {
+        if (!LoadFloorData(i)) {
+            std::cerr << "Failed to load floor " << i << std::endl;
             return false;
         }
     }
@@ -307,85 +381,90 @@ bool GameWorld::loadAllFloors(int numFloors) {
     return true;
 }
 
-bool GameWorld::loadFloorData(int floorNumber) {
-    if (floorNumber < 0 || floorNumber >= static_cast<int>(floors.size())) {
-        cerr << "Неверный номер этажа: " << floorNumber << endl;
+bool GameWorld::LoadFloorData(int floor_number) {
+    if (floor_number < 0 ||
+        floor_number >= static_cast<int>(floors_.size())) {
+        std::cerr << "Неверный номер этажа: " << floor_number << std::endl;
         return false;
     }
 
-    if (!floors[floorNumber].rooms.empty()) {
+    if (!floors_[floor_number].rooms.empty()) {
         return true;
     }
 
-    string roomFile = "room" + to_string(floorNumber + 1) + ".txt";
-    string actionFile = "actions" + to_string(floorNumber + 1) + ".txt";
-    string resultFile = "results" + to_string(floorNumber + 1) + ".txt";
+    std::string room_file = "room" + std::to_string(floor_number + 1) + ".txt";
+    std::string action_file = "actions" + std::to_string(floor_number + 1) + ".txt";
+    std::string result_file = "results" + std::to_string(floor_number + 1) + ".txt";
 
     bool success = true;
-    success &= loadRooms(roomFile, floors[floorNumber].rooms, floorNumber);
-    success &= loadActions({ actionFile }, { resultFile },
-        floors[floorNumber].actions,
-        floors[floorNumber].actionMap);
+    success &= LoadRooms(room_file, floors_[floor_number].rooms, floor_number);
+    success &= LoadActions({ action_file }, { result_file },
+        floors_[floor_number].actions,
+        floors_[floor_number].action_map);
 
-    if (floorNumber == 0) {
-        success &= loadEffects("effects.txt", floors[floorNumber].effects);
-        success &= loadMonsters("monsters.txt", floors[floorNumber].monsters);
+    if (floor_number == 0) {
+        success &= LoadEffects("effects.txt", floors_[floor_number].effects);
+        success &= LoadMonsters("monsters.txt", floors_[floor_number].monsters);
     }
     else {
-        floors[floorNumber].effects = floors[0].effects;
-        floors[floorNumber].monsters = floors[0].monsters;
+        floors_[floor_number].effects = floors_[0].effects;
+        floors_[floor_number].monsters = floors_[0].monsters;
     }
 
     if (!success) {
-        cerr << "Ошибка загрузки данных для этажа " << (floorNumber + 1) << endl;
+        std::cerr << "Ошибка загрузки данных для этажа "
+            << (floor_number + 1) << std::endl;
         return false;
     }
 
     return true;
 }
 
-const FloorData& GameWorld::getCurrentFloor() const {
-    if (floors.empty()) {
-        throw runtime_error("No floors loaded");
+const FloorData& GameWorld::GetCurrentFloor() const {
+    if (floors_.empty()) {
+        throw std::runtime_error("No floors loaded");
     }
-    if (currentFloor < 0 || currentFloor >= static_cast<int>(floors.size())) {
-        throw runtime_error("Invalid current floor index");
+    if (current_floor_ < 0 ||
+        current_floor_ >= static_cast<int>(floors_.size())) {
+        throw std::runtime_error("Invalid current floor index");
     }
-    return floors[currentFloor];
+    return floors_[current_floor_];
 }
 
-const Room& GameWorld::getCurrentRoom(int floor, int room) const {
-    if (floor < 0 || floor >= floors.size()) {
-        throw out_of_range("Invalid floor number");
+const Room& GameWorld::GetCurrentRoom(int floor, int room) const {
+    if (floor < 0 || floor >= static_cast<int>(floors_.size())) {
+        throw std::out_of_range("Invalid floor number");
     }
-    if (room < 0 || room >= floors[floor].rooms.size()) {
-        throw out_of_range("Invalid room number");
+    if (room < 0 || room >= static_cast<int>(floors_[floor].rooms.size())) {
+        throw std::out_of_range("Invalid room number");
     }
-    return floors[floor].rooms[room];
+    return floors_[floor].rooms[room];
 }
 
-Room& GameWorld::getCurrentRoomMutable() {
-    if (floors.empty()) {
-        throw runtime_error("Не загружены данные этажей");
+Room& GameWorld::GetCurrentRoomMutable() {
+    if (floors_.empty()) {
+        throw std::runtime_error("Не загружены данные этажей");
     }
-    if (currentFloor < 0 || currentFloor >= static_cast<int>(floors.size())) {
-        throw runtime_error("Неверный индекс текущего этажа");
+    if (current_floor_ < 0 ||
+        current_floor_ >= static_cast<int>(floors_.size())) {
+        throw std::runtime_error("Неверный индекс текущего этажа");
     }
-    if (currentRoom < 0 || currentRoom >= static_cast<int>(floors[currentFloor].rooms.size())) {
-        throw runtime_error("Неверный индекс текущей комнаты");
+    if (current_room_ < 0 ||
+        current_room_ >= static_cast<int>(floors_[current_floor_].rooms.size())) {
+        throw std::runtime_error("Неверный индекс текущей комнаты");
     }
-    return floors[currentFloor].rooms[currentRoom];
+    return floors_[current_floor_].rooms[current_room_];
 }
 
-int GameWorld::getFloorCount() const {
-    return static_cast<int>(floors.size());
+int GameWorld::GetFloorCount() const {
+    return static_cast<int>(floors_.size());
 }
 
-void GameWorld::setCurrentPosition(int floor, int room) {
-    if (floor < 0 || floor >= floors.size() ||
-        room < 0 || room >= floors[floor].rooms.size()) {
-        throw out_of_range("Invalid position");
+void GameWorld::SetCurrentPosition(int floor, int room) {
+    if (floor < 0 || floor >= static_cast<int>(floors_.size()) ||
+        room < 0 || room >= static_cast<int>(floors_[floor].rooms.size())) {
+        throw std::out_of_range("Invalid position");
     }
-    currentFloor = floor;
-    currentRoom = room;
+    current_floor_ = floor;
+    current_room_ = room;
 }

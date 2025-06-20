@@ -1,10 +1,12 @@
-//combat_system.h
+// combat_system.h
 #pragma once
-#include "game_objects.h"
+
 #include <vector>
+
+#include "game_objects.h"
 
 class CombatSystem {
 public:
-    static bool fight(Player& player, const Monster& originalMonster,
+    static bool Fight(Player& player, const Monster& original_monster,
         const std::vector<Effect>& effects);
 };

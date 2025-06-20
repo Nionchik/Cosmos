@@ -1,40 +1,47 @@
-//game_world.h
+// game_world.h
 #pragma once
-#include "game_objects.h"
-#include <vector>
 #include <string>
+#include <vector>
+#include <map>
+
+#include "game_objects.h"
 
 struct FloorData {
     std::vector<Room> rooms;
     std::vector<Action> actions;
-    std::map<std::string, Action> actionMap;
+    std::map<std::string, Action> action_map;
     std::vector<Effect> effects;
     std::vector<Monster> monsters;
 };
 
 class GameWorld {
 public:
-    bool loadAllFloors(int numFloors);
-    bool loadFloorData(int floorNumber);
-    const FloorData& getCurrentFloor() const;
-    const Room& getCurrentRoom(int floor, int room) const;
-    Room& getCurrentRoomMutable();
-    int getFloorCount() const;
-    void setCurrentPosition(int floor, int room);
+    bool LoadAllFloors(int num_floors, Player& player);
+    bool LoadFloorData(int floor_number);
+    const FloorData& GetCurrentFloor() const;
+    const Room& GetCurrentRoom(int floor, int room) const;
+    Room& GetCurrentRoomMutable();
+    int GetFloorCount() const;
+    void SetCurrentPosition(int floor, int room);
 
-    int getCurrentFloorIndex() const { return currentFloor; }
-    int getCurrentRoomIndex() const { return currentRoom; }
+    int GetCurrentFloorIndex() const { return current_floor_; }
+    int GetCurrentRoomIndex() const { return current_room_; }
 
 private:
-    std::vector<FloorData> floors;
-    int currentFloor = 0;
-    int currentRoom = 0;
+    std::vector<FloorData> floors_;
+    int current_floor_ = 0;
+    int current_room_ = 0;
 
-    bool loadRooms(const std::string& filename, std::vector<Room>& rooms, int floorNumber);
-    bool loadActions(const std::vector<std::string>& actionFiles,
-        const std::vector<std::string>& resultFiles,
+    bool LoadPlayerStats(const std::string& filename, Player& player);
+    bool LoadWeapons(const std::string& filename);
+    bool LoadMonsters(const std::string& filename,
+        std::vector<Monster>& monsters);
+    bool LoadRooms(const std::string& filename,
+        std::vector<Room>& rooms, int floor_number);
+    bool LoadActions(const std::vector<std::string>& action_files,
+        const std::vector<std::string>& result_files,
         std::vector<Action>& actions,
-        std::map<std::string, Action>& actionMap);
-    bool loadEffects(const std::string& filename, std::vector<Effect>& effects);
-    bool loadMonsters(const std::string& filename, std::vector<Monster>& monsters);
+        std::map<std::string, Action>& action_map);
+    bool LoadEffects(const std::string& filename,
+        std::vector<Effect>& effects);
 };

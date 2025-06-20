@@ -1,323 +1,373 @@
 // game_actions.cpp
-#include "game_actions.h"
-#include "../ui/console_ui.h"
 #include <algorithm>
-#include <random>
 #include <iostream>
+#include <random>
 #include <string>
 
-void GameActions::processEffect(Player& player, const std::string& itemName,
+#include "../ui/console_ui.h"
+#include "game_actions.h"
+
+void GameActions::ResetRoomFirstVisit(Player& player, GameWorld& world) {
+    Room& room = world.GetCurrentRoomMutable();
+    if (room.first_visit) {
+        room.first_visit = false;
+        room.completed_actions.clear();
+    }
+}
+
+void GameActions::ProcessEffect(Player& player, const std::string& item_name,
     const std::vector<Effect>& effects) {
     auto it = std::find_if(effects.begin(), effects.end(),
-        [&](const Effect& e) { return e.name == itemName; });
+        [&](const Effect& e) { return e.name == item_name; });
 
     if (it != effects.end()) {
         const Effect& effect = *it;
         if (effect.type == "базовый") {
             if (effect.name == "Деталь") {
-                if (player.canFindPart()) {
-                    player.shipParts++;
-                    std::string key = "floor_" + std::to_string(player.currentFloor) +
-                        "_room_" + std::to_string(player.currentRoom);
-                    player.foundParts[key] = true;
-                    UI::printColored("Найдена деталь корабля! (" +
-                        std::to_string(player.shipParts) + "/7)\n", 11);
+                if (player.CanFindPart()) {
+                    player.ship_parts++;
+                    std::string key = std::to_string(player.current_floor) + "_" +
+                        std::to_string(player.current_room);
+                    player.found_parts[key] = true;
+                    ui::PrintColored("Найдена деталь корабля! (" +
+                        std::to_string(player.ship_parts) + "/7)\n", 11);
                 }
                 else {
-                    UI::printColored("Здесь вы всё уже нашли!\n", 13);
+                    ui::PrintColored("УВЫ, но здесь Вы всё уже нашли!\n", 13);
                 }
             }
             else if (effect.name == "Флакон Внезапной Силы") {
-                player.suddenStrengthPotions++;
-                UI::printColored("Получен Флакон Внезапной Силы! (Теперь: " +
-                    std::to_string(player.suddenStrengthPotions) + ")\n", 13);
+                player.sudden_strength_potions++;
+                ui::PrintColored("Получен Флакон Внезапной Силы! (Теперь: " +
+                    std::to_string(player.sudden_strength_potions) + ")\n", 13);
             }
             else if (effect.name == "Кристалл Жизни") {
-                player.lifeCrystals++;
-                UI::printColored("Получен Кристалл Жизни! (Теперь: " +
-                    std::to_string(player.lifeCrystals) + ")\n", 13);
+                player.life_crystals++;
+                ui::PrintColored("Получен Кристалл Жизни! (Теперь: " +
+                    std::to_string(player.life_crystals) + ")\n", 13);
             }
-            else if (effect.healthEffect > 0) {
-                player.heal(effect.healthEffect);
-                UI::printColored("Получено " + std::to_string(effect.healthEffect) + " HP\n", 10);
+            else if (effect.health_effect > 0) {
+                player.Heal(effect.health_effect);
+                ui::PrintColored("Получено " +
+                    std::to_string(effect.health_effect) + " HP\n", 10);
             }
-            else if (effect.healthEffect < 0) {
-                player.takeDamage(-effect.healthEffect);
-                UI::printColored("Получено " + std::to_string(-effect.healthEffect) + " урона\n", 12);
+            else if (effect.health_effect < 0) {
+                player.TakeDamage(-effect.health_effect);
+                ui::PrintColored("Получено " +
+                    std::to_string(-effect.health_effect) + " урона\n", 12);
             }
         }
         else if (effect.type == "артефакт") {
-            if (!player.canFindArtifact()) {
-                UI::printColored("Здесь вы всё уже нашли!\n", 13);
+            std::string key = std::to_string(player.current_floor) + "_" +
+                std::to_string(player.current_room) + "_" +
+                effect.name;
+
+            if (player.found_artifacts.count(key)) {
+                ui::PrintColored("УВЫ, но здесь Вы всё уже нашли!\n", 13);
                 return;
             }
 
-            // Сохраняем старые значения
-            int oldStats[4] = {
-                player.strength,
-                player.agility,
-                player.intellect,
-                player.endurance
-            };
+            player.found_artifacts[key] = true;
+            int old_stats[4] = { player.strength, player.agility,
+                player.intellect, player.endurance };
 
-            // Применяем изменения с проверкой и ограничением до 70%
-            if (effect.strengthEffect != 0) {
-                int newStrength = player.strength + effect.strengthEffect;
-                player.strength = std::min(newStrength, 70);
-            }
-            if (effect.agilityEffect != 0) {
-                int newAgility = player.agility + effect.agilityEffect;
-                player.agility = std::min(newAgility, 70);
-            }
-            if (effect.intellectEffect != 0) {
-                int newIntellect = player.intellect + effect.intellectEffect;
-                player.intellect = std::min(newIntellect, 70);
-            }
-            if (effect.enduranceEffect != 0) {
-                int newEndurance = player.endurance + effect.enduranceEffect;
-                player.endurance = std::min(newEndurance, 70);
-            }
+            if (effect.strength_effect != 0) player.strength =
+                std::min(player.strength + effect.strength_effect, 80);
+            if (effect.agility_effect != 0) player.agility =
+                std::min(player.agility + effect.agility_effect, 80);
+            if (effect.intellect_effect != 0) player.intellect =
+                std::min(player.intellect + effect.intellect_effect, 80);
+            if (effect.endurance_effect != 0) player.endurance =
+                std::min(player.endurance + effect.endurance_effect, 80);
 
-            // Выводим только реально измененные характеристики
-            UI::printColored("\nНайден артефакт: " + effect.name + "\n", 6);
+            if (effect.fire_resistance > 0) player.fire_resistance =
+                std::min(player.fire_resistance + effect.fire_resistance, 80);
+            if (effect.poison_resistance > 0) player.poison_resistance =
+                std::min(player.poison_resistance + effect.poison_resistance, 80);
+            if (effect.earth_resistance > 0) player.earth_resistance =
+                std::min(player.earth_resistance + effect.earth_resistance, 80);
+            if (effect.water_resistance > 0) player.water_resistance =
+                std::min(player.water_resistance + effect.water_resistance, 80);
 
-            if (effect.strengthEffect != 0)
-                UI::printColored("СИЛ: " + std::to_string(oldStats[0]) + " > " + std::to_string(player.strength) + "\n", 14);
-            if (effect.agilityEffect != 0)
-                UI::printColored("ЛОВ: " + std::to_string(oldStats[1]) + " > " + std::to_string(player.agility) + "\n", 14);
-            if (effect.intellectEffect != 0)
-                UI::printColored("ИНТ: " + std::to_string(oldStats[2]) + " > " + std::to_string(player.intellect) + "\n", 14);
-            if (effect.enduranceEffect != 0)
-                UI::printColored("ВЫН: " + std::to_string(oldStats[3]) + " > " + std::to_string(player.endurance) + "\n", 14);
+            ui::PrintColored("\nНайден артефакт: " + effect.name + "\n", 6);
+            if (effect.strength_effect != 0)
+                ui::PrintColored("СИЛ: " + std::to_string(old_stats[0]) + " > " +
+                    std::to_string(player.strength) + "\n", 14);
+            if (effect.agility_effect != 0)
+                ui::PrintColored("ЛОВ: " + std::to_string(old_stats[1]) + " > " +
+                    std::to_string(player.agility) + "\n", 14);
+            if (effect.intellect_effect != 0)
+                ui::PrintColored("ИНТ: " + std::to_string(old_stats[2]) + " > " +
+                    std::to_string(player.intellect) + "\n", 14);
+            if (effect.endurance_effect != 0)
+                ui::PrintColored("ВЫН: " + std::to_string(old_stats[3]) + " > " +
+                    std::to_string(player.endurance) + "\n", 14);
 
-            // Вывод сопротивлений с ограничением до 70%
-            if (effect.fireResistance > 0 && effect.name == "Кольцо Огнестойкости") {
-                int newResistance = std::min(effect.fireResistance, 70);
-                UI::printColored("Огонь +" + std::to_string(newResistance) + "%\n", 12);
-            }
-            if (effect.poisonResistance > 0 && effect.name == "Амулет Ядостойкости") {
-                int newResistance = std::min(effect.poisonResistance, 70);
-                UI::printColored("Яд +" + std::to_string(newResistance) + "%\n", 10);
-            }
-            if (effect.earthResistance > 0 && effect.name == "Перчатки Землестойкости") {
-                int newResistance = std::min(effect.earthResistance, 70);
-                UI::printColored("Земля +" + std::to_string(newResistance) + "%\n", 6);
-            }
-            if (effect.waterResistance > 0 && effect.name == "Гидрофобный плащ") {
-                int newResistance = std::min(effect.waterResistance, 70);
-                UI::printColored("Вода +" + std::to_string(newResistance) + "%\n", 9);
-            }
-
-            // Сохраняем факт нахождения артефакта
-            std::string key = "floor_" + std::to_string(player.currentFloor) + "_room_" + std::to_string(player.currentRoom);
-            player.foundArtifacts[key] = true;
-
-            // Выводим итоговые характеристики
-            UI::printColored("\nТекущие характеристики:\n", 11);
-            UI::printPlayerStats(player);
+            ui::PrintColored("\nТекущие характеристики:\n", 11);
+            ui::PrintPlayerStats(player);
         }
     }
 }
 
-bool GameActions::checkActionSuccess(const Player& player, const std::string& statName) {
-    int statValue = 0;
-    if (statName == "СИЛ") statValue = player.strength;
-    else if (statName == "ЛОВ") statValue = player.agility;
-    else if (statName == "ИНТ") statValue = player.intellect;
-    else if (statName == "ВЫН") statValue = player.endurance;
+bool GameActions::CheckActionSuccess(const Player& player,
+    const std::string& stat_name) {
+    int stat_value = 0;
+    if (stat_name == "СИЛ") stat_value = player.strength;
+    else if (stat_name == "ЛОВ") stat_value = player.agility;
+    else if (stat_name == "ИНТ") stat_value = player.intellect;
+    else if (stat_name == "ВЫН") stat_value = player.endurance;
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(1, 100);
-    return (dist(gen) <= statValue);
+    return (dist(gen) <= stat_value);
 }
 
-void GameActions::handleRoomAction(Player& player, GameWorld& world) {
-    const FloorData& currentFloor = world.getCurrentFloor();
-    Room& currentRoom = world.getCurrentRoomMutable();
+void GameActions::HandleRoomAction(Player& player, GameWorld& world) {
+    const FloorData& current_floor = world.GetCurrentFloor();
+    Room& current_room = world.GetCurrentRoomMutable();
 
-    UI::printColored("=== " + std::to_string(world.getCurrentFloorIndex() + 1) + " этаж ===\n", 11);
-    UI::printRoomDescription(currentRoom);
-    UI::waitForEnter();
-
-    // Генерация ID действий
-    std::vector<std::string> fullActionIds;
-    std::vector<std::string> availableActions;
-
-    for (const auto& actionId : currentRoom.actionIds) {
-        std::string fullId = std::to_string(world.getCurrentFloorIndex() + 1) + "_" +
-            std::to_string(currentRoom.id) + "_" +
-            actionId.substr(actionId.find_last_of('_') + 1);
-
-        if (currentRoom.completedActions.find(fullId) == currentRoom.completedActions.end()) {
-            fullActionIds.push_back(fullId);
-            availableActions.push_back(actionId);
-        }
+    if (current_room.first_visit) {
+        current_room.first_visit = false;
+        current_room.completed_actions.clear();
     }
 
-    // Проверка на базовые действия (без изменений)
-    if (availableActions.empty()) {
-        bool hasBasicActions = false;
-        for (const auto& actionId : currentRoom.actionIds) {
-            std::string fullId = std::to_string(world.getCurrentFloorIndex() + 1) + "_" +
-                std::to_string(currentRoom.id) + "_" +
-                actionId.substr(actionId.find_last_of('_') + 1);
+    std::vector<std::string> full_action_ids;
+    for (const auto& action_id : current_room.action_ids) {
+        full_action_ids.push_back(
+            std::to_string(world.GetCurrentFloorIndex() + 1) + "_" +
+            std::to_string(current_room.id) + "_" +
+            action_id.substr(action_id.find_last_of('_') + 1)
+        );
+    }
 
-            const Action& action = currentFloor.actionMap.at(fullId);
-            auto effectIt = std::find_if(currentFloor.effects.begin(), currentFloor.effects.end(),
+    std::vector<std::string> available_actions;
+    for (const auto& full_id : full_action_ids) {
+        const Action& action = current_floor.action_map.at(full_id);
+        bool can_perform = true;
+
+        if (!action.success.item.empty()) {
+            auto effect_it = std::find_if(current_floor.effects.begin(),
+                current_floor.effects.end(),
                 [&](const Effect& e) { return e.name == action.success.item; });
 
-            if (action.success.item.empty() ||
-                (effectIt != currentFloor.effects.end() &&
-                    effectIt->type != "артефакт" &&
-                    action.success.item != "Деталь")) {
-                hasBasicActions = true;
-                break;
-            }
-        }
-
-        if (hasBasicActions) {
-            for (const auto& actionId : currentRoom.actionIds) {
-                std::string fullId = std::to_string(world.getCurrentFloorIndex() + 1) + "_" +
-                    std::to_string(currentRoom.id) + "_" +
-                    actionId.substr(actionId.find_last_of('_') + 1);
-
-                const Action& action = currentFloor.actionMap.at(fullId);
-                bool isBasicAction = action.success.item.empty();
-                if (!isBasicAction) {
-                    auto effectIt = std::find_if(currentFloor.effects.begin(), currentFloor.effects.end(),
-                        [&](const Effect& e) { return e.name == action.success.item; });
-
-                    if (effectIt != currentFloor.effects.end()) {
-                        isBasicAction = (action.success.item != "Деталь" && effectIt->type != "артефакт");
+            if (effect_it != current_floor.effects.end()) {
+                if (effect_it->type == "артефакт") {
+                    std::string key = std::to_string(player.current_floor) + "_" +
+                        std::to_string(current_room.id) + "_" +
+                        action.success.item;
+                    if (player.found_artifacts.count(key)) {
+                        can_perform = false;
                     }
                 }
-
-                if (isBasicAction) {
-                    currentRoom.completedActions.erase(fullId);
-                    fullActionIds.push_back(fullId);
-                    availableActions.push_back(actionId);
+                else if (effect_it->name == "Деталь") {
+                    std::string key = std::to_string(player.current_floor) + "_" +
+                        std::to_string(current_room.id);
+                    if (player.found_parts.count(key)) {
+                        can_perform = false;
+                    }
                 }
-            }
-
-            if (!availableActions.empty()) {
-                UI::printColored("\nВы можете повторить некоторые действия здесь\n", 11);
             }
         }
 
-        // Единственное место, где выводится "Вы все проверили здесь!"
-        if (availableActions.empty()) {
-            UI::printColored("\nВы все проверили здесь!\n", 13);
-            UI::waitForEnter();
-            moveToNextLocation(player, world);
-            return;
+        if (!action.success.item.empty() || !action.failure.item.empty()) {
+            if (current_room.completed_actions.find(full_id) !=
+                current_room.completed_actions.end()) {
+                can_perform = false;
+            }
+        }
+
+        if (can_perform) {
+            available_actions.push_back(full_id);
         }
     }
 
-    // Показ доступных действий
-    UI::printAvailableActions(player, fullActionIds, currentFloor.actionMap);
-    std::cout << (fullActionIds.size() + 1) << ". ";
-    UI::printColored("Перейти дальше", 7);
+    if (available_actions.empty()) {
+        for (const auto& full_id : full_action_ids) {
+            const Action& action = current_floor.action_map.at(full_id);
+            if (action.success.item.empty() && action.failure.item.empty()) {
+                current_room.completed_actions.erase(full_id);
+                available_actions.push_back(full_id);
+            }
+        }
+    }
+
+    ui::PrintAvailableActions(player, available_actions, current_floor.action_map);
+    std::cout << (available_actions.size() + 1) << ". ";
+    ui::PrintColored("Перейти дальше", 7);
     std::cout << std::endl;
 
-    // Обработка выбора игрока
     int choice;
     if (!(std::cin >> choice)) {
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        UI::printColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
+        ui::PrintColored("Неверный ввод! Пожалуйста, введите число.\n", 12);
         return;
     }
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    if (choice == static_cast<int>(fullActionIds.size()) + 1) {
-        moveToNextLocation(player, world);
+    if (choice == static_cast<int>(available_actions.size()) + 1) {
+        MoveToNextLocation(player, world);
         return;
     }
 
-    if (choice > 0 && choice <= static_cast<int>(fullActionIds.size())) {
-        const Action& action = currentFloor.actionMap.at(fullActionIds[choice - 1]);
-        bool success = GameActions::checkActionSuccess(player, action.requiredStat);
+    if (choice > 0 && choice <= static_cast<int>(available_actions.size())) {
+        const Action& action = current_floor.action_map.at(
+            available_actions[choice - 1]);
+        bool success = GameActions::CheckActionSuccess(player, action.required_stat);
 
-        showActionResults(player, action, success, currentFloor);
-        currentRoom.completedActions.insert(fullActionIds[choice - 1]);
+        ShowActionResults(player, action, success, current_floor);
 
-        // Проверяем, остались ли еще действия
-        bool hasMoreActions = false;
-        for (const auto& actionId : currentRoom.actionIds) {
-            std::string fullId = std::to_string(world.getCurrentFloorIndex() + 1) + "_" +
-                std::to_string(currentRoom.id) + "_" +
-                actionId.substr(actionId.find_last_of('_') + 1);
-            if (currentRoom.completedActions.find(fullId) == currentRoom.completedActions.end()) {
-                hasMoreActions = true;
+        if (!action.success.item.empty() || !action.failure.item.empty()) {
+            current_room.completed_actions.insert(available_actions[choice - 1]);
+        }
+
+        bool has_more_actions = false;
+        for (const auto& full_id : full_action_ids) {
+            const Action& a = current_floor.action_map.at(full_id);
+            bool can_perform = true;
+
+            if (!a.success.item.empty()) {
+                auto effect_it = std::find_if(current_floor.effects.begin(),
+                    current_floor.effects.end(),
+                    [&](const Effect& e) { return e.name == a.success.item; });
+
+                if (effect_it != current_floor.effects.end()) {
+                    if (effect_it->type == "артефакт") {
+                        std::string key = std::to_string(player.current_floor) + "_" +
+                            std::to_string(current_room.id) + "_" +
+                            a.success.item;
+                        if (player.found_artifacts.count(key)) {
+                            can_perform = false;
+                        }
+                    }
+                    else if (effect_it->name == "Деталь") {
+                        std::string key = std::to_string(player.current_floor) + "_" +
+                            std::to_string(current_room.id);
+                        if (player.found_parts.count(key)) {
+                            can_perform = false;
+                        }
+                    }
+                }
+            }
+
+            if (can_perform &&
+                current_room.completed_actions.find(full_id) ==
+                current_room.completed_actions.end()) {
+                has_more_actions = true;
                 break;
             }
         }
 
-        // Если действий не осталось - переходим дальше (без повторного сообщения)
-        if (!hasMoreActions) {
-            UI::printColored("\nВы все проверили здесь!\n", 13);
-            moveToNextLocation(player, world);
+        if (!has_more_actions) {
+            ui::PrintColored("\nВы все проверили здесь!\n", 14);
+            ui::WaitForEnter("Нажмите Enter ...");
+            MoveToNextLocation(player, world);
         }
     }
     else {
-        UI::printColored("Неверный выбор!\n", 12);
-        UI::waitForEnter();
+        ui::PrintColored("Неверный выбор!\n", 12);
+        ui::WaitForEnter();
     }
 }
 
-void GameActions::moveToNextLocation(Player& player, GameWorld& world) {
-    // Сбрасываем completedActions для текущей комнаты при выходе
-    Room& currentRoom = world.getCurrentRoomMutable();
-    currentRoom.completedActions.clear();
+void GameActions::MoveToNextLocation(Player& player, GameWorld& world) {
+    Room& current_room = world.GetCurrentRoomMutable();
+    current_room.completed_actions.clear();
 
-    player.currentRoom++;
-    if (player.currentRoom >= world.getCurrentFloor().rooms.size()) {
-        player.currentRoom = 0;
-        player.currentFloor++;
-        if (player.currentFloor >= world.getFloorCount()) {
-            player.currentFloor = 0;
+    player.current_room++;
+    if (player.current_room >= world.GetCurrentFloor().rooms.size()) {
+        player.current_room = 0;
+        player.current_floor++;
+        if (player.current_floor >= world.GetFloorCount()) {
+            player.current_floor = 0;
         }
     }
-    player.actionsTaken = 0;
-    world.setCurrentPosition(player.currentFloor, player.currentRoom);
+
+    world.GetCurrentRoomMutable().first_visit = true;
+    player.actions_taken = 0;
+    world.SetCurrentPosition(player.current_floor, player.current_room);
+    system("cls");
 }
 
-void GameActions::showActionResults(Player& player, const Action& action,
+void GameActions::ShowActionResults(Player& player, const Action& action,
     bool success, const FloorData& floor) {
-    UI::printColored("=== " + std::to_string(player.currentFloor + 1) + " этаж ===\n", 11);
+    ui::PrintColored("=== " + std::to_string(player.current_floor + 1) +
+        " этаж ===\n", 11);
 
     if (success) {
-        UI::printColored("\n=== УСПЕХ ===\n", 10);
-        UI::printMultiline(action.success.description, 15, true);
-        std::cout << std::endl;
-
+        bool already_found = false;
         if (!action.success.item.empty()) {
-            GameActions::processEffect(player, action.success.item, floor.effects);
-        }
-    }
-    else {
-        UI::printColored("\n=== ПРОВАЛ ===\n", 12);
-        UI::printMultiline(action.failure.description, 15, true);
-        std::cout << std::endl;
+            auto effect_it = std::find_if(floor.effects.begin(),
+                floor.effects.end(),
+                [&](const Effect& e) { return e.name == action.success.item; });
 
-        if (!action.failure.item.empty()) {
-            if (action.failure.item == "бой") {
-                UI::printColored("\nПриготовьтесь к бою!\n", 12);
-                if (!floor.monsters.empty()) {
-                    std::random_device rd;
-                    std::mt19937 gen(rd());
-                    std::uniform_int_distribution<size_t> dist(0, floor.monsters.size() - 1);
-                    Monster monster = floor.monsters[dist(gen)];
-                    if (!CombatSystem::fight(player, monster, floor.effects)) {
-                        return;
+            if (effect_it != floor.effects.end()) {
+                if (effect_it->type == "артефакт") {
+                    std::string key = std::to_string(player.current_floor) + "_" +
+                        std::to_string(player.current_room) + "_" +
+                        action.success.item;
+                    if (player.found_artifacts.count(key)) {
+                        already_found = true;
+                    }
+                }
+                else if (effect_it->name == "Деталь") {
+                    std::string key = std::to_string(player.current_floor) + "_" +
+                        std::to_string(player.current_room);
+                    if (player.found_parts.count(key)) {
+                        already_found = true;
                     }
                 }
             }
+        }
+
+        if (already_found) {
+            ui::PrintColored("\nУВЫ, но здесь Вы всё уже нашли!\n", 13);
+        }
+        else {
+            ui::PrintColored("\n=== УСПЕХ ===\n", 10);
+            ui::PrintMultiline(action.success.description, 15, true);
+            std::cout << std::endl;
+
+            if (!action.success.item.empty()) {
+                GameActions::ProcessEffect(player, action.success.item, floor.effects);
+            }
+        }
+        ui::WaitForEnter();
+    }
+    else {
+        ui::PrintColored("\n=== ПРОВАЛ ===\n", 12);
+        ui::PrintMultiline(action.failure.description, 15, true);
+        std::cout << std::endl;
+        ui::WaitForEnter("Нажмите Enter ...");
+
+        if (!action.failure.item.empty()) {
+            if (action.failure.item == "бой") {
+                ui::PrintColored("\nПриготовьтесь к бою!\n", 12);
+                ui::WaitForEnter();
+
+                if (!floor.monsters.empty()) {
+                    std::random_device rd;
+                    std::mt19937 gen(rd());
+                    std::uniform_int_distribution<size_t> dist(0,
+                        floor.monsters.size() - 1);
+                    Monster monster = floor.monsters[dist(gen)];
+                    if (!CombatSystem::Fight(player, monster, floor.effects)) {
+                        if (player.health <= 0) {
+                            ui::ShowGameEnding(false);
+                            // Завершить игру
+                            exit(0);
+                        }
+                        return;
+                    }
+                    ui::WaitForEnter();
+                }
+            }
             else {
-                UI::printColored("\nПоследствия: ", 13);
-                UI::printColored(action.failure.item + "\n", 14);
-                GameActions::processEffect(player, action.failure.item, floor.effects);
+                ui::PrintColored("\nПоследствия: ", 13);
+                ui::PrintColored(action.failure.item + "\n", 14);
+                GameActions::ProcessEffect(player, action.failure.item, floor.effects);
+                ui::WaitForEnter();
             }
         }
     }
