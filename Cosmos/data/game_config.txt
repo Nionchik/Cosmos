@@ -1,0 +1,6 @@
+floors:4
+min_melee_damage:7
+max_melee_damage:10
+min_monster_damage:9
+max_monster_damage:12
+melee_crit_chance:35

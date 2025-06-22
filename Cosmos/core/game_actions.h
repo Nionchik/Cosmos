@@ -1,4 +1,3 @@
-// game_actions.h
 #pragma once
 #include <iostream>
 #include <random>
@@ -12,15 +11,16 @@
 
 class GameActions {
 public:
-    static void HandleRoomAction(Player& player, GameWorld& world);
-    static void MoveToNextLocation(Player& player, GameWorld& world);
-    static void ProcessEffect(Player& player, const std::string& item_name,
-        const std::vector<Effect>& effects);
-    static bool CheckActionSuccess(const Player& player,
-        const std::string& stat_name);
-    static void ResetRoomFirstVisit(Player& player, GameWorld& world);
+  static void HandleRoomAction(Player& player, GameWorld& world);
+  static void MoveToNextLocation(Player& player, GameWorld& world);
+  static void ProcessEffect(Player& player, const std::string& item_name,
+    const std::vector<Effect>& effects);
+  static bool CheckActionSuccess(const Player& player,
+    const std::string& stat_name);
+  static void ResetRoomFirstVisit(Player& player, GameWorld& world);
 
 private:
-    static void ShowActionResults(Player& player, const Action& action,
-        bool success, const FloorData& floor);
+  static void ShowActionResults(Player& player, const Action& action,
+    bool success, const FloorData& floor,
+    GameWorld& world);
 };
